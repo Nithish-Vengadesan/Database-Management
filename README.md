@@ -7,9 +7,9 @@ has information of 100k orders from 2016 to 2018 made at multiple marketplaces i
 provides multiple dimensions on an order namely: order status, price, payment and freight 
 performance to customer location, product attributes and finally reviews written by customers. It 
 also has a geolocation dataset that relates Brazilian zip codes to lat/lng coordinates.
-• The dataset can be downloaded from the following url: 
+• The dataset can be downloaded from the following 
 
-https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce
+Url: https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce
 
 In addition to this dataset, Olist has released a marketing funnel dataset as information of 8k 
 Marketing Qualified Leads (MQLs) that requested contact between Jun. 1st 2017 and Jun 1st 2018. 
