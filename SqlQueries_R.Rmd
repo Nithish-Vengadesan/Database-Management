@@ -1,0 +1,568 @@
+---
+title: "Assignment_Group41"
+output: html_document
+date: "2023-03-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(readr)
+library(tidyverse)
+library(RSQLite)
+
+```
+
+
+```{r}
+olist_files_d <- list.files("Dataset/")
+olist_files_d
+```
+
+
+```{r}
+prefix <- "olist_"
+suffix <- "_dataset.csv"
+
+olist_files <- gsub("olist_","",olist_files_d)
+olist_files <- gsub("_dataset.csv","",olist_files_d)
+olist_files
+```
+
+
+```{r warning=FALSE}
+#setup the connection
+connection <- RSQLite::dbConnect(RSQLite::SQLite(),"olist.db")
+
+for (variable in olist_files_d) {
+  this_filepath <- paste0("Dataset/",variable)
+  this_file_contents <- readr::read_csv(this_filepath)
+
+  table_name <- gsub(".csv","",variable)
+  #Remove prefix and suffix 
+  table_name <- gsub("olist_","",table_name)
+  table_name <- gsub("_dataset","",table_name)
+  # table_name <- variable
+  
+  RSQLite::dbWriteTable(connection,table_name,this_file_contents,overwrite=TRUE)
+  
+}
+
+RSQLite::dbListTables(connection)
+
+RSQLite::dbDisconnect(connection)
+```
+
+
+
+
+```{r}
+for (variable in olist_files_d) {
+  this_filepath <- paste0("Dataset/",variable)
+  this_file_contents <- readr::read_csv(this_filepath)
+
+  table_name <- gsub(".csv","",variable)
+  saveRDS(this_file_contents,file=paste0("rdadata/",table_name,".rds"))
+  
+}
+
+```
+```{r}
+test_connection <- RSQLite::dbConnect(RSQLite::SQLite(),"test.db")
+
+```
+
+
+
+
+```{sql connection=test_connection}
+CREATE TABLE 'customers'(
+'customer_id' VARCHAR(50) PRIMARY KEY,
+'customer_unique_id' VARCHAR(50) NOT NULL,
+'customer_zip_code_prefix' INT NOT NULL,
+'customer_city' VARCHAR(50) NOT NULL,
+'customer_state' VARCHAR(5) NOT NULL,
+FOREIGN KEY (customer_zip_code_prefix)
+    REFERENCES geolocation(geolocation_zip_code_prefix)
+);
+```
+
+ 
+
+```{sql connection=test_connection}
+CREATE TABLE 'geolocation'(
+'geolocation_zip_code_prefix' INT,
+'geolocation_lat' VARCHAR (50) NOT NULL,
+'geolocation_lng' VARCHAR (50) NOT NULL,
+'geolocation_city' CHAR(50),
+'geolocation_state' CHAR(5),
+PRIMARY KEY ('geolocation_zip_code_prefix', 'geolocation_lat','geolocation_lng')
+);
+```
+
+ 
+
+```{sql connection=test_connection}
+CREATE TABLE 'orders' (
+'order_id' VARCHAR(50) PRIMARY KEY,
+'customer_id' VARCHAR(50) NOT NULL,
+'order_status' VARCHAR(255) NOT NULL,
+'order_purchase_timestamp' TIMESTAMP NOT NULL,
+'order_approved_at' TIMESTAMP,
+'order_delivered_carrier_date' TIMESTAMP NOT NULL,
+'order_delivered_customer_date' TIMESTAMP NOT NULL,
+'order_estimated_delivery_date' TIMESTAMP NOT NULL,
+FOREIGN KEY ('customer_id')
+  REFERENCES customers('customer_id')
+);
+```
+
+ 
+
+```{sql connection=test_connection}
+CREATE TABLE 'products_category_name_translation'(
+'product_category_name' VARCHAR(255)PRIMARY KEY,
+'product_cateogy_name_english' VARCHAR(255)
+);
+```
+
+ 
+
+```{sql connection=test_connection}
+CREATE TABLE 'products'(
+'product_id'VARCHAR(50) PRIMARY KEY,
+'product_category_name' VARCHAR(255),
+'product_name_length' INT,
+'product_description_length'TEXT,
+'product_photos_qty' INT NOT NULL,
+'product_weight_g' INT NOT NULL,
+'product_length_cm' INT NOT NULL,
+'product_height_cm' INT NOT NULL,
+'product_width_cm' INT NOT NULL,
+FOREIGN KEY ('product_category_name')
+  REFERENCES products_category_name_translation ('product_category_name')
+);
+```
+
+ 
+
+
+```{sql connection=test_connection}
+CREATE TABLE 'sellers' (
+'seller_id' VARCHAR(50) PRIMARY KEY,
+'seller_zip_code_prefix' INT,
+'seller_city' VARCHAR(50) NOT NULL,
+'seller_state' VARCHAR(2) NOT NULL,
+FOREIGN KEY (seller_zip_code_prefix)
+    REFERENCES geolocation(geolocation_zip_code_prefix)
+);
+```
+
+ 
+
+```{sql connection=test_connection}
+CREATE TABLE 'order_reviews' (
+'review_id' VARCHAR(50),
+'order_id' VARCHAR(50) NOT NULL,
+'review_score'INT NOT NULL,
+'review__comment_title' VARCHAR(8000),
+'review_comment_message' VARCHAR (8000),
+'review_creation_date' TIMESTAMP NOT NULL,
+'review_answer_timestamp' TIMESTAMP NOT NULL,
+FOREIGN KEY('order_id')
+  REFERENCES orders('order_id')
+PRIMARY KEY ('review_id', 'order_id')
+);
+```
+
+ 
+
+```{sql connection=test_connection}
+CREATE TABLE 'order_items'(
+'order_id' VARCHAR(50),
+'order_items_id' INT NOT NULL,
+'product_id'  VARCHAR(50) NOT NULL,  
+'seller_id' VARCHAR(50) NOT NULL,  
+'shipping_limit_date' DATE NOT NULL,
+'price' DOUBLE NOT NULL,
+'freight_value' DOUBLE NOT NULL,
+FOREIGN KEY ('product_id') 
+  REFERENCES products('product_id'),
+FOREIGN KEY ('order_id')
+  REFERENCES orders('order_id')
+PRIMARY KEY ('order_id', 'order_items_id')
+);
+```
+
+ 
+
+```{sql connection=test_connection}
+CREATE TABLE 'order_payments'(
+'order_id' VARCHAR(50) NOT NULL,
+'payment_sequential'INT NOT NULL,
+'payment_type' VARCHAR(50)NOT NULL,
+'payment_installment' INT NOT NULL,
+'payment_value' DOUBLE NOT NULL,
+FOREIGN KEY ('order_id')
+  REFERENCES orders('order_id')
+PRIMARY KEY('order_id', 'payment_sequential')
+);
+
+ 
+
+```
+
+ 
+
+```{sql connection=test_connection}
+CREATE TABLE 'closed_deals' (
+'mql_id' VARCHAR(50) NOT NULL,
+'seller_id' VARCHAR(50) NOT NULL,
+'sdr_id' VARCHAR(50) NOT NULL,
+'sr_id' VARCHAR(50) NOT NULL,
+'won_date' TIMESTAMP NOT NULL,
+'business_segment' VARCHAR(50) NOT NULL,
+'lead_type' VARCHAR(50) NOT NULL,
+'lead_behaviour_profile' VARCHAR(50) NOT NULL,
+'has_company' VARCHAR(50) NOT NULL,
+'has_gtin' VARCHAR(50) NOT NULL,
+'average_stock' VARCHAR(50),
+'business_type' VARCHAR(50) NOT NULL,
+'declared_product_catalog_size' INT,
+'declared_monthly_revenue' INT,
+FOREIGN KEY ('seller_id')
+  REFERENCES sellers('seller_id')
+  FOREIGN KEY('mql_id')
+  REFERENCES marketing_qualified_leads('mql_id')
+PRIMARY KEY ('mql_id','seller_id')
+
+ 
+
+);
+```
+
+ 
+
+```{sql connection=test_connection}
+CREATE TABLE 'marketing_qualified_leads'(
+'mql_id' VARCHAR(50) NOT NULL,
+'first_contact_date' TIMESTAMP NOT NULL,
+'landing_page_id' VARCHAR(50),
+'orgin' VARCHAR(50) NOT NULL,
+PRIMARY KEY('mql_id')
+);
+```
+
+
+
+```{r}
+RSQLite::dbDisconnect(test_connection)
+
+```
+
+
+```{r}
+
+source_data <- dbGetQuery(connection, "SELECT * FROM customers")
+dbWriteTable(test_connection, "customers", source_data, overwrite = TRUE)
+
+
+```
+
+
+```{sql connection= connection}
+select average_stock from closed_deals
+```
+```{r}
+test_connection <- RSQLite::dbConnect(RSQLite::SQLite(),"test.db")
+
+```
+
+
+
+```{r}
+dbListTables(test_connection)
+
+
+```
+
+```{r}
+closed_deals<-read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_closed_deals_dataset.csv")
+customers<- read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_customers_dataset.csv")
+geolocation<-read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_geolocation_dataset.csv")
+marketing_qualified_leads<-read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_marketing_qualified_leads_dataset.csv")
+order_items<- read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_order_items_dataset.csv")
+order_payments <- read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_order_payments_dataset.csv")
+order_reviews<-read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_order_reviews_dataset.csv")
+orders<- read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_orders_dataset.csv")
+products<-read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_products_dataset.csv")
+sellers<-read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\olist_sellers_dataset.csv")
+product_category_name_translation<-read.csv("C:\\Users\\mailm\\Desktop\\Assignment DM\\R_Project\\Dataset\\product_category_name_translation.csv")
+```
+
+
+
+```{sql connection= test_connection}
+
+
+SELECT c.product_category_name, AVG(r.review_score) AS avg_review_score 
+FROM order_reviews r 
+JOIN orders o 
+ON r.order_id = o.order_id 
+JOIN order_items i 
+ON r.order_id = i.order_id 
+JOIN products p 
+ON i.product_id = p.product_id 
+JOIN product_category_name_translation c 
+ON p.product_category_name = c.product_category_name
+WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp) = 2017 
+GROUP BY c.product_category_name_english 
+ORDER BY avg_review_score 
+DESC LIMIT 5
+
+
+```
+
+
+
+```{r}
+#Query 1: What are the top 5 product categories with the highest average review score in 2017?
+
+ top_categories_avg_review_score <- order_reviews %>% inner_join(orders, by = "order_id") %>% inner_join(order_items, by = "order_id") %>% inner_join(products, by = "product_id") %>% inner_join(product_category_name_translation, by = c("product_category_name"="product_category_name_english")) %>% mutate(year = lubridate::year(order_purchase_timestamp)) %>% filter(year == 2017) %>% group_by(product_category_name) %>% summarize(avg_review_score = mean(review_score)) %>% arrange(desc(avg_review_score)) 
+
+
+top_categories_avg_review_score
+
+```
+
+```{r}
+#Query 2: What is the total number of orders and total revenue for each product categoryin 2018 and filter out the top 3?
+
+top_categories_by_revenue <- orders %>% mutate(year = lubridate::year(order_purchase_timestamp))%>%filter(year == 2018) %>% inner_join(order_payments, by = "order_id") %>% inner_join(order_items, by = "order_id") %>% inner_join(products, by = "product_id") %>% inner_join(product_category_name_translation, by = c("product_category_name"="product_category_name_english")) %>% group_by(product_category_name) %>% summarize(num_orders = n_distinct(order_id), total_revenue = sum(payment_value)) %>% arrange(desc(total_revenue)) %>% head(10)
+
+top_categories_by_revenue
+```
+
+```{r}
+#Query 3: How many buyers purchased multiple products from the same seller?
+
+num_customers_from_sellers1<- orders %>% inner_join(order_items, by = "order_id") %>% inner_join(customers, by="customer_id") %>% group_by(seller_id) %>% summarise(num_customers = n_distinct(paste(customer_id, seller_id)), mode_customer_location = names(which.max(table(customer_state)))) %>% filter(num_customers > 0)
+
+num_customers_from_sellers1
+
+```
+
+```{r}
+#Query 4: What is the average order value in each Brazilian state?
+
+avg_order_value <- orders %>% inner_join(order_payments, by = "order_id") %>% inner_join(customers, by="customer_id")%>% group_by(customer_state) %>% summarise(avg_order_value = mean(payment_value)) 
+avg_order_value
+
+```
+
+```{r}
+#Query 5:  How many orders for each payment method were cancelled?
+
+num_cancelled_orders1 <- orders  %>% left_join(order_payments, by="order_id") %>%left_join(order_items, by="order_id") %>% left_join(products, by="product_id")%>% inner_join(product_category_name_translation, by="product_category_name")%>% filter(order_status == "canceled")%>%group_by(product_category_name_english) %>% summarise(num_cancelled_orders = n())%>%arrange(desc(num_cancelled_orders))
+
+num_cancelled_orders1
+
+```
+
+```{r}
+library(ggplot2)
+#Query1
+
+
+ggplot(top_categories_avg_review_score, aes(y = product_category_name, x = avg_review_score)) +
+  geom_bar(stat = "identity", fill = "#4C72B0") +
+  
+  # Customize the appearance
+  theme_minimal() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_text(size = 10),
+        axis.text.x = element_text(size = 12),
+        axis.title.x = element_text(size = 14),
+        plot.title = element_text(size = 16, hjust = 0.5)) +
+  labs(title = "Average Review Score by Product Category",
+       x = "Average Review Score")
+
+```
+
+```{r}
+#Q2
+
+ggplot(top_categories_by_revenue, aes(x = product_category_name, y = total_revenue)) +
+  geom_bar(stat = "identity", fill = "red") +
+  coord_flip() +
+  xlab("Product Category") +
+  ylab("Total Revenue (BRL)") +
+  ggtitle("Top 10 Product Categories by Revenue in 2018") 
+
+```
+
+```{r}
+ggplot(num_customers_from_sellers1, aes(x = reorder(seller_id, num_customers), y = num_customers)) +
+  geom_bar(stat = "identity", fill = "black") +
+  xlab("Seller ID") +
+  ylab("Number of Unique Customers") +
+  ggtitle("Number of Unique Customers per Seller")
+
+
+```
+
+
+```{r}
+
+
+
+```
+
+
+```{r}
+
+library(ggplot2)
+library(maps)
+library(mapdata)
+
+# Compute average order value by state
+avg_order_value <- orders %>% 
+  inner_join(order_payments, by = "order_id") %>% 
+  inner_join(customers, by = "customer_id") %>% 
+  group_by(customer_state) %>% 
+  summarise(avg_order_value = mean(payment_value)) %>% 
+  arrange(desc(avg_order_value))
+
+# Merge the average order value data with the map data
+map_data <- map_data("state")
+map_data <- merge(map_data, avg_order_value, by.x = "region", by.y = "customer_state")
+
+# Create choropleth map
+ggplot(map_data, aes(x = long, y = lat, group = group, fill = avg_order_value)) +
+  geom_polygon() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(title = "Average Order Value by State", fill = "Average Order Value") +
+  theme_void() +
+  coord_map()
+
+```
+
+```{r}
+#Query 5
+
+ggplot(num_cancelled_orders1, aes(x = num_cancelled_orders, y = reorder(product_category_name_english, num_cancelled_orders))) +
+  geom_col(fill = "darkred") +
+  geom_text(aes(label = num_cancelled_orders), hjust = -0.1, size = 4, color = "white") +
+  labs(title = "Number of Cancelled Orders by Product Category") +
+  xlab("Number of Cancelled Orders") +
+  ylab("Product Category") +
+  theme_minimal()
+```
+
+```{r}
+library(ggplot2)
+
+#Query1
+ggplot(top_categories_avg_review_score, aes(y = product_category_name, x = avg_review_score)) +
+  geom_bar(stat = "identity", fill = "#4C72B0") +
+  
+    theme_minimal() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_text(size = 10),
+        axis.text.x = element_text(size = 12),
+        axis.title.x = element_text(size = 14),
+        plot.title = element_text(size = 16, hjust = 0.5)) +
+  labs(title = "Average Review Score by Product Category",
+       x = "Average Review Score")
+
+```
+```{r}
+library(ggplot2)
+
+#Query 2
+
+ggplot(top_categories_by_revenue, aes(x = total_revenue, y = reorder(product_category_name, -total_revenue))) +
+  geom_col(fill = "#4C72B0") +
+  labs(x = "Total Revenue", y = "Product Category", title = "Top Product Categories by Total Revenue in 2018") +
+  theme(plot.title = element_text(face = "bold", size = 14), axis.text.y = element_text(size = 10))
+
+```
+```{r}
+library(ggplot2)
+
+# Query3
+num_customers_from_sellers1 <- orders %>%
+  inner_join(order_items, by = "order_id") %>%
+  inner_join(customers, by = "customer_id") %>%
+  group_by(seller_id) %>%
+  summarise(num_customers = n_distinct(paste(customer_id, seller_id)),
+            mode_customer_location = names(which.max(table(customer_state)))) %>%
+  filter(num_customers > 0)
+
+# scatter plot
+ggplot(num_customers_from_sellers1, aes(x = num_customers, y = mode_customer_location)) +
+  geom_point() +
+  labs(x = "Number of Customers",
+       y = "Seller Location",
+       title = "Number of Customers Who Purchased from the Same Seller")
+
+```
+
+
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(maps)
+library(ggplot2)
+
+# Download map data for Brazilian states
+states_map <- map_data("state", region = "brazil")
+
+# Plot choropleth map with average order value by state
+ggplot() +
+  # Add states polygons
+  geom_polygon(data = states_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  # Add choropleth fill with average order value
+  geom_map(data = avg_order_value, map = states_map, aes(fill = avg_order_value, map_id = region), color = "black") +
+  # Add color scale and labels
+  scale_fill_gradient(low = "white", high = "blue", name = "Average Order Value") +
+  labs(title = "Average Order Value by Brazilian State") +
+  coord_map("albers", lat0 = 0, lat1 = -20) + # Center map on Brazil
+  theme_void()
+
+```
+
+```{r}
+
+library(rnaturalearth)
+library(ggplot2)
+
+# get Brazil map
+brazil <- ne_countries(country = "brazil", returnclass = "sf")
+
+# plot map with average order values
+ggplot(avg_order_value, aes(fill = avg_order_value)) + 
+  geom_sf(data = brazil) +
+  geom_sf_text(aes(label = customer_state), size = 3) +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(title = "Average Order Value by Brazilian State") +
+  theme_void()
+
+```
+
+```{r}
+#Query 5
+
+ggplot(num_cancelled_orders1, aes(x = num_cancelled_orders, y = reorder(product_category_name_english, num_cancelled_orders))) +
+  geom_col(fill = "darkred") +
+  geom_text(aes(label = num_cancelled_orders), hjust = -0.1, size = 4, color = "white") +
+  labs(title = "Number of Cancelled Orders by Product Category") +
+  xlab("Number of Cancelled Orders") +
+  ylab("Product Category") +
+  theme_minimal()
+```

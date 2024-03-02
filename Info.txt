@@ -1,0 +1,33 @@
+The Report covers a common step for structured data and in particular the reverse engineering of a database and the extraction of data using structured query language (SQL) and the R programing language. It aims to familiarize with the principles of relational databases and in particular: normalization, relational mapping, absorption of business rules on the relational view etc.
+
+Reflective Report: Database Design and Analysis
+
+A1. Entity Identification and Modeling Assumptions:
+
+In analyzing the provided datasets, we have identified several distinct entities, including customers, products, orders, and transactions. From these datasets, we infer the following relationships: customers place orders, orders contain transactions, and transactions involve products. To model these relationships accurately, we must define the cardinality and attributes of each entity. For instance, customers can place multiple orders (1-to-many), orders can contain multiple transactions (1-to-many), and transactions are associated with specific products (many-to-1).
+
+A2. E-R Diagram:
+
+Please refer to the attached E-R diagram for a visual representation of the identified entities and their relationships.
+
+A3. SQL DDL:
+
+To implement the database structure, we provide the following SQL Data Definition Language (DDL) statements. These statements define the tables for customers, products, orders, and transactions, along with their respective attributes and key constraints.
+
+A4. Data Quality Issues:
+
+Upon examining the datasets, we have identified several data quality issues that need to be addressed. These include empty values, inconsistencies in column formats, and potential duplicates. It is essential to handle these issues meticulously to ensure the accuracy and reliability of the database.
+
+A5. Database Normalization:
+
+Normalization is a crucial step in database design to minimize redundancy and maintain data integrity. We aim to normalize the database to at least the third normal form (3NF) to streamline data storage and improve overall efficiency.
+
+A6. Complex SQL Queries:
+
+We have formulated a set of complex SQL queries to extract meaningful insights from the database. These queries range from retrieving specific customer orders to analyzing product sales and identifying patterns in customer behavior.
+
+A7. Data Visualization:
+
+Utilizing ggplot, we can visualize the results of our queries through various graphical representations. These visualizations offer a clear and intuitive way to interpret the data, facilitating informed decision-making and further analysis.
+
+This report encapsulates our methodology for database design and analysis, encompassing entity identification, normalization, SQL query formulation, and data visualization. By addressing data quality issues and leveraging appropriate techniques, we aim to build a robust and efficient database system capable of supporting diverse analytical tasks.

@@ -1,0 +1,394 @@
+---
+title: "Database Management"
+author: "Nithish Vengadesan"
+output: html_document
+date: "2023-03-02"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(readr)
+library(tidyverse)
+library(RSQLite)
+library(dplyr)
+```
+
+
+
+```{r}
+olist_files_d <- list.files("Dataset/")
+olist_files_d
+
+```
+
+```{r}
+prefix <- "olist_"
+suffix <- "_dataset.csv"
+
+olist_files <- gsub("olist_","",olist_files_d)
+olist_files <- gsub("_dataset.csv","",olist_files_d)
+olist_files
+```
+
+
+```{r warning=FALSE}
+#setup the connection
+connection <- RSQLite::dbConnect(RSQLite::SQLite(),"olist.db")
+
+for (variable in olist_files_d) {
+  this_filepath <- paste0("Dataset/",variable)
+  this_file_contents <- readr::read_csv(this_filepath)
+
+  table_name <- gsub(".csv","",variable)
+  #Remove prefix and suffix 
+  table_name <- gsub("olist_","",table_name)
+  table_name <- gsub("_dataset","",table_name)
+  # table_name <- variable
+  
+  RSQLite::dbWriteTable(connection,table_name,this_file_contents,overwrite=TRUE)
+  
+}
+
+RSQLite::dbListTables(connection)
+
+RSQLite::dbDisconnect(connection)
+```
+
+
+
+
+```{r}
+for (variable in olist_files_d) {
+  this_filepath <- paste0("Dataset/",variable)
+  this_file_contents <- readr::read_csv(this_filepath)
+
+  table_name <- gsub(".csv","",variable)
+  saveRDS(this_file_contents,file=paste0("rdadata/",table_name,".rds"))
+  
+}
+```
+
+```{r}
+connection<- RSQLite::dbConnect(RSQLite::SQLite(), "olist.db")
+test_connection<- RSQLite::dbConnect(RSQLite::SQLite(), "test.db")
+```
+
+# Create Tables with DDL
+
+```{sql connection=test_connection}
+CREATE TABLE 'customers'(
+'customer_id' VARCHAR(50) PRIMARY KEY,
+'customer_unique_id' VARCHAR(50) NOT NULL,
+'customer_zip_code_prefix' INT NOT NULL,
+'customer_city' VARCHAR(50) NOT NULL,
+'customer_state' VARCHAR(5) NOT NULL,
+FOREIGN KEY (customer_zip_code_prefix)
+    REFERENCES geolocation(geolocation_zip_code_prefix)
+);
+```
+
+```{sql connection=test_connection}
+CREATE TABLE 'geolocation'(
+'geolocation_zip_code_prefix' INT,
+'geolocation_lat' VARCHAR (50) NOT NULL,
+'geolocation_lng' VARCHAR (50) NOT NULL,
+'geolocation_city' CHAR(50),
+'geolocation_state' CHAR(5),
+PRIMARY KEY ('geolocation_zip_code_prefix', 'geolocation_lat','geolocation_lng')
+);
+```
+
+```{sql connection=test_connection}
+CREATE TABLE 'orders' (
+'order_id' VARCHAR(50) PRIMARY KEY,
+'customer_id' VARCHAR(50) NOT NULL,
+'order_status' VARCHAR(255) NOT NULL,
+'order_purchase_timestamp' TIMESTAMP NOT NULL,
+'order_approved_at' TIMESTAMP,
+'order_delivered_carrier_date' TIMESTAMP NOT NULL,
+'order_delivered_customer_date' TIMESTAMP NOT NULL,
+'order_estimated_delivery_date' TIMESTAMP NOT NULL,
+FOREIGN KEY ('customer_id')
+  REFERENCES customers('customer_id')
+);
+```
+
+```{sql connection=test_connection}
+CREATE TABLE 'products_category_name_translation'(
+'product_category_name' VARCHAR(255)PRIMARY KEY,
+'product_cateogy_name_english' VARCHAR(255)
+);
+```
+
+```{sql connection=test_connection}
+CREATE TABLE 'products'(
+'product_id'VARCHAR(50) PRIMARY KEY,
+'product_category_name' VARCHAR(255),
+'product_name_length' INT,
+'product_description_length'TEXT,
+'product_photos_qty' INT NOT NULL,
+'product_weight_g' INT NOT NULL,
+'product_length_cm' INT NOT NULL,
+'product_height_cm' INT NOT NULL,
+'product_width_cm' INT NOT NULL,
+FOREIGN KEY ('product_category_name')
+  REFERENCES products_category_name_translation ('product_category_name')
+);
+```
+
+
+```{sql connection=test_connection}
+CREATE TABLE 'sellers' (
+'seller_id' VARCHAR(50) PRIMARY KEY,
+'seller_zip_code_prefix' INT,
+'seller_city' VARCHAR(50) NOT NULL,
+'seller_state' VARCHAR(2) NOT NULL,
+FOREIGN KEY (seller_zip_code_prefix)
+    REFERENCES geolocation(geolocation_zip_code_prefix)
+);
+```
+
+```{sql connection=test_connection}
+CREATE TABLE 'order_reviews' (
+'review_id' VARCHAR(50),
+'order_id' VARCHAR(50) NOT NULL,
+'review_score'INT NOT NULL,
+'review__comment_title' VARCHAR(8000),
+'review_comment_message' VARCHAR (8000),
+'review_creation_date' TIMESTAMP NOT NULL,
+'review_answer_timestamp' TIMESTAMP NOT NULL,
+FOREIGN KEY('order_id')
+  REFERENCES orders('order_id')
+PRIMARY KEY ('review_id', 'order_id')
+);
+```
+
+```{sql connection=test_connection}
+CREATE TABLE 'order_items'(
+'order_id' VARCHAR(50),
+'order_items_id' INT NOT NULL,
+'product_id'  VARCHAR(50) NOT NULL,  
+'seller_id' VARCHAR(50) NOT NULL,  
+'shipping_limit_date' DATE NOT NULL,
+'price' DOUBLE NOT NULL,
+'freight_value' DOUBLE NOT NULL,
+FOREIGN KEY ('product_id') 
+  REFERENCES products('product_id'),
+FOREIGN KEY ('order_id')
+  REFERENCES orders('order_id')
+PRIMARY KEY ('order_id', 'order_items_id')
+);
+```
+
+```{sql connection=test_connection}
+CREATE TABLE 'order_payments'(
+'order_id' VARCHAR(50) NOT NULL,
+'payment_sequential'INT NOT NULL,
+'payment_type' VARCHAR(50)NOT NULL,
+'payment_installment' INT NOT NULL,
+'payment_value' DOUBLE NOT NULL,
+FOREIGN KEY ('order_id')
+  REFERENCES orders('order_id')
+PRIMARY KEY('order_id', 'payment_sequential')
+);
+
+```
+
+```{sql connection=test_connection}
+CREATE TABLE 'closed_deals' (
+'mql_id' VARCHAR(50) NOT NULL,
+'seller_id' VARCHAR(50) NOT NULL,
+'sdr_id' VARCHAR(50) NOT NULL,
+'sr_id' VARCHAR(50) NOT NULL,
+'won_date' TIMESTAMP NOT NULL,
+'business_segment' VARCHAR(50) NOT NULL,
+'lead_type' VARCHAR(50) NOT NULL,
+'lead_behaviour_profile' VARCHAR(50) NOT NULL,
+'has_company' VARCHAR(50) NOT NULL,
+'has_gtin' VARCHAR(50) NOT NULL,
+'average_stock' VARCHAR(50),
+'business_type' VARCHAR(50) NOT NULL,
+'declared_product_catalog_size' INT,
+'declared_monthly_revenue' INT,
+FOREIGN KEY ('seller_id')
+  REFERENCES sellers('seller_id')
+FOREIGN KEY('mql_id')
+  REFERENCES marketing_qualified_leads('mql_id')
+PRIMARY KEY ('mql_id','seller_id')
+);
+```
+
+```{sql connection=test_connection}
+CREATE TABLE 'marketing_qualified_leads'(
+'mql_id' VARCHAR(50) NOT NULL,
+'first_contact_date' TIMESTAMP NOT NULL,
+'landing_page_id' VARCHAR(50),
+'orgin' VARCHAR(50) NOT NULL,
+PRIMARY KEY('mql_id')
+);
+```
+
+```{r}
+RSQLite::dbDisconnect(test_connection)
+```
+
+
+#Normalisation
+
+Multivalues in 'lead_behaviour_profile'.
+
+#```{sql connection=test_connection}
+---behaviour_profile table
+CREATE TABLE 'behaviour_profile' (
+'behaviour_profile_id' INT PRIMARY KEY,
+'lead_behaviour_profile' VARCHAR(50)
+);
+
+---lead_behaviour table: Junction table to connect leads to its respective behaviour type(s)
+CREATE TABLE 'lead_behaviour'(
+'mql_id' VARCHAR(50) NOT NULL,
+'behaviour_profile_id' INT
+FOREIGN KEY ('mql_id')
+  REFERENCES marketing_qualified_leads('mql_id')
+FOREIGN KEY ('behaviour_profile_id')
+  REFERENCES behaviour_type ('behaviour_profile_id')
+);
+
+--- new closed_deals table: closed_deals_1
+CREATE TABLE 'closed_deals_1'(
+'mql_id' VARCHAR(50) NOT NULL,
+'seller_id' VARCHAR(50) NOT NULL,
+'sdr_id' VARCHAR(50) NOT NULL,
+'sr_id' VARCHAR(50) NOT NULL,
+'won_date' TIMESTAMP NOT NULL,
+'business_segment' VARCHAR(50) NOT NULL,
+'lead_type' VARCHAR(50) NOT NULL,
+'has_company' VARCHAR(50) NOT NULL,
+'has_gtin' VARCHAR(50) NOT NULL,
+'average_stock' VARCHAR(50),
+'business_type' VARCHAR(50) NOT NULL,
+'declared_product_catalog_size' INT,
+'declared_monthly_revenue' INT,
+FOREIGN KEY ('seller_id')
+  REFERENCES sellers('seller_id')
+FOREIGN KEY('mql_id')
+  REFERENCES marketing_qualified_leads('mql_id')
+PRIMARY KEY ('mql_id','seller_id')
+);
+#```
+
+# A6 SQL Queries
+##read csv
+```{r}
+closed_deals<-read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_closed_deals_dataset.csv")
+customers<- read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_customers_dataset.csv")
+geolocation<-read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_geolocation_dataset.csv")
+marketing_qualified_leads<-read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_marketing_qualified_leads_dataset.csv")
+order_items<- read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_order_items_dataset.csv")
+order_payments <- read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_order_payments_dataset.csv")
+order_reviews<-read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_order_reviews_dataset.csv")
+orders<- read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_orders_dataset.csv")
+products<-read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_products_dataset.csv")
+sellers<-read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\olist_sellers_dataset.csv")
+product_category_name_translation<-read.csv("G:\\My Drive\\Masters Academic\\Term 2\\Data Management\\Assignment\\Dataset\\product_category_name_translation.csv")
+```
+
+Query 1: What are the top 5 product categories with the highest average review score in 2017?
+Query 2: What is the total number of orders and total revenue for each product categoryin 2018 and filter out the top 3?
+Query 3: How many buyers purchased multiple products from the same seller?
+Query 4: What is the average order value in each Brazilian state?
+Query 5:  How many orders for each payment method were cancelled?
+
+```{sql connection=test_connection}
+---Q1
+SELECT c.product_category_name, AVG(r.review_score) AS avg_review_score 
+FROM order_reviews r 
+JOIN orders o 
+ON r.order_id = o.order_id 
+JOIN order_items i 
+ON r.order_id = i.order_id 
+JOIN products p 
+ON i.product_id = p.product_id 
+JOIN product_category_name_translation c 
+ON p.product_category_name = c.product_category_name
+WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp) = 2017 
+GROUP BY c.product_category_name_english 
+ORDER BY avg_review_score 
+DESC LIMIT 5
+
+---Q2
+SELECT c.product_category_name, COUNT(DISTINCT o.order_id) AS num_orders, SUM(p.payment_value) AS total_revenue 
+FROM orders o JOIN order_payments p 
+ON o.order_id = p.order_id 
+JOIN order_items i 
+ON o.order_id = i.order_id 
+JOIN products pr 
+ON i.product_id = pr.product_id 
+JOIN product_category_name_translation c 
+ON pr.product_category_name = c.product_category_name
+WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp) = 2018 
+GROUP BY c.product_category_name_english
+ORDER BY total_revenue
+DESC LIMIT 3
+
+---Q3
+SELECT COUNT(DISTINCT CONCAT(o.customer_id, ' ', ol.seller_id)) AS num_customers 
+FROM orders AS o 
+INNER JOIN order_items AS ol 
+ON o.order_id = ol.order_id 
+GROUP BY ol.seller_id 
+HAVING COUNT(DISTINCT CONCAT(o.customer_id, ' ', ol.seller_id)) > 0
+
+
+---Q4
+SELECT o.customer_state, AVG(op.payment_value) AS avg_order_value 
+FROM orders AS o 
+INNER JOIN order_payments AS op 
+ON o.order_id = op.order_id 
+INNER JOIN customers AS c
+ON c.customer_id= o.order_id
+GROUPBY o.customer_state;
+
+---Q5
+SELECT o.payment_type, COUNT(o.order_id) AS num_cancelled_orders 
+FROM orders AS o 
+INNER JOIN order_payments as op
+ON op.order_id= o.order_id
+WHERE o.order_status = 'canceled' 
+GROUP BY o.payment_type;
+
+```
+
+```{r}
+#Q1
+ top_categories_avg_review_score <- order_reviews %>% inner_join(orders, by = "order_id") %>% inner_join(order_items, by = "order_id") %>% inner_join(products, by = "product_id") %>% inner_join(product_category_name_translation, by = c("product_category_name"="product_category_name_english")) %>% mutate(year = lubridate::year(order_purchase_timestamp)) %>% filter(year == 2017) %>% group_by(product_category_name) %>% summarize(avg_review_score = mean(review_score)) %>% arrange(desc(avg_review_score)) %>% head(5)
+top_categories_avg_review_score
+
+#Q2
+top_categories_by_revenue <- orders %>% mutate(year = lubridate::year(order_purchase_timestamp))%>%filter(year == 2018) %>% inner_join(order_payments, by = "order_id") %>% inner_join(order_items, by = "order_id") %>% inner_join(products, by = "product_id") %>% inner_join(product_category_name_translation, by = c("product_category_name"="product_category_name_english")) %>% group_by(product_category_name) %>% summarize(num_orders = n_distinct(order_id), total_revenue = sum(payment_value)) %>% head(3)
+top_categories_by_revenue
+
+#Q3
+num_customers <- orders %>% inner_join(order_items, by = "order_id") %>% group_by(seller_id) %>% summarise(num_customers = n_distinct(paste(customer_id, seller_id))) %>% filter(num_customers > 0) 
+num_customers
+
+#Q4
+avg_order_value <- orders %>% inner_join(order_payments, by = "order_id") %>% inner_join(customers, by="customer_id")%>% group_by(customer_state) %>% summarise(avg_order_value = mean(payment_value)) 
+avg_order_value
+
+#Q5
+num_cancelled_orders <- orders %>% filter(order_status == "canceled") %>% inner_join(order_payments, by="order_id") %>% group_by(payment_type) %>% summarise(num_cancelled_orders = n())
+num_cancelled_orders
+```
+
+# A7
+
+```{r}
+
+
